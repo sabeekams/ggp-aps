@@ -11,29 +11,19 @@ import util.statemachine.MachineState;
 import util.statemachine.Move;
 import util.statemachine.Role;
 
-import java.lang.Runtime;
-
 public class CachingProverStateMachine extends ProverStateMachine
 {
-	private static final double memoryThreshold = 0.4;
 	// The List key must be a tuple of MachineState, Role
 	private HashMap<List<Object>, List<Move>> movesCache;
 	// The List key must be a tuple of MachineState, List<Move>
 	private HashMap<List<Object>, MachineState> nextStatesCache;
 	// Cache terminal states as true and non-terminal states as false;	
 	private HashMap<MachineState, Boolean> terminalStatesCache;
-	//Secondary caches to switch to when the primary ones get too big
+	// Secondary caches to switch to when the primary ones get too big
 	private HashMap<List<Object>, List<Move>> secondMovesCache;
 	private HashMap<List<Object>, MachineState> secondNextStatesCache;
 	private HashMap<MachineState, Boolean> secondTerminalStatesCache;
 
-	public boolean moreThanPercentMemoryAvailable(double threshold) {
-		double totalMemory = (double)Runtime.getRuntime().totalMemory();
-		double freeMemory = (double)Runtime.getRuntime().freeMemory();
-		
-		return (freeMemory / totalMemory) > threshold;
-	}
-	
 	public CachingProverStateMachine() {
 		movesCache = new HashMap<List<Object>, List<Move>>();
 		secondMovesCache = new HashMap<List<Object>, List<Move>>();
@@ -52,7 +42,7 @@ public class CachingProverStateMachine extends ProverStateMachine
 		List<Move> moves  = movesCache.get(key);
 		if (moves == null) {
 			moves = super.getLegalMoves(state, role);
-			if (moreThanPercentMemoryAvailable(memoryThreshold))
+			if (SystemCalls.isMemoryAvailable())
 				movesCache.put(key, moves);
 		} else {
 			secondMovesCache.put(key, moves);
@@ -69,7 +59,7 @@ public class CachingProverStateMachine extends ProverStateMachine
 		MachineState nextState  = nextStatesCache.get(key);
 		if (nextState == null) {
 			nextState = super.getNextState(state, moves);
-			if (moreThanPercentMemoryAvailable(memoryThreshold))
+			if (SystemCalls.isMemoryAvailable())
 				nextStatesCache.put(key, nextState);
 		} else {
 			secondNextStatesCache.put(key, nextState);
@@ -83,7 +73,7 @@ public class CachingProverStateMachine extends ProverStateMachine
 		Boolean cachedBool = terminalStatesCache.get(state);
 		if (cachedBool == null) {
 			cachedBool = new Boolean(super.isTerminal(state));
-			if (moreThanPercentMemoryAvailable(memoryThreshold))
+			if (SystemCalls.isMemoryAvailable())
 				terminalStatesCache.put(state, cachedBool);
 		} else {
 			secondTerminalStatesCache.put(state, cachedBool);
@@ -91,16 +81,14 @@ public class CachingProverStateMachine extends ProverStateMachine
 		return cachedBool.booleanValue();
 	}
 	
-	
-	public void printMemoryUsage(){
-		System.out.println("Next State Cache Size = " + nextStatesCache.size());
-		System.out.println("Terminal State Cache Size = " + terminalStatesCache.size());
-		System.out.println("Moves Cache Size = " + movesCache.size());
+	public void report(){
+		System.out.println("Next states cache size = " + nextStatesCache.size());
+		System.out.println("Terminal states cache size = " + terminalStatesCache.size());
+		System.out.println("Moves cache size = " + movesCache.size());
 	}
 
-	@Override
-	public void doPerMoveWork() {
-		if (!moreThanPercentMemoryAvailable(memoryThreshold)) {
+	public void SwapCachesIfNeeded() {
+		if (!SystemCalls.isMemoryAvailable()) {
 			movesCache = secondMovesCache;
 			secondMovesCache = new HashMap<List<Object>, List<Move>>();
 			nextStatesCache = secondNextStatesCache;
@@ -108,6 +96,11 @@ public class CachingProverStateMachine extends ProverStateMachine
 			terminalStatesCache = secondTerminalStatesCache;
 			secondTerminalStatesCache = new HashMap<MachineState, Boolean>();
 		}
+	}
+	
+	@Override
+	public void doPerMoveWork() {
+		SwapCachesIfNeeded();
 		super.doPerMoveWork();
 	}
 }

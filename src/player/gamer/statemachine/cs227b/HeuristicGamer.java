@@ -21,7 +21,7 @@ public class HeuristicGamer extends StateMachineGamer {
 	protected static final double focusHeuristicFactor = 5.0;
 	protected static final double mobilityHeuristicFactor = 12.0;
 	protected static final int timeoutThreshold = 2000;
-	protected static final double memoryThreshold = 0.4;
+	
 	
 	public HeuristicGamer() {
 		super();
@@ -46,10 +46,6 @@ public class HeuristicGamer extends StateMachineGamer {
 		// do nothing
 	}
 	
-	public boolean timedOut(long finishBy) {
-		return System.currentTimeMillis() > finishBy;
-	}
-	
 	@Override
 	public void stateMachineMetaGame(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
@@ -72,22 +68,14 @@ public class HeuristicGamer extends StateMachineGamer {
 	
 	/*Keeps track of memory and cache
 	 */
-	public void logUsage(Move movePlayed, Role role, long timeout) {
+	public void report(Move movePlayed, Role role, long timeout) {
 		System.out.println("----");
-		System.out.println("Roll = " + role);
-		System.out.println("Move played = " + movePlayed.toString());
-		
-		long totalMemory = Runtime.getRuntime().totalMemory();
-		long freeMemory = Runtime.getRuntime().freeMemory();
-		
-		long memoryUsage = (totalMemory - freeMemory);
-		System.out.println("Memory usage (bytes) = " + memoryUsage);
-		double percentUsage = 100.0*memoryUsage/(double)totalMemory;
-		System.out.println("Memory usage (percent) = " + percentUsage);
-		
+		System.out.println("Role = " + role);
+		System.out.println("Move played = " + movePlayed);
+		System.out.println("Memory usage (bytes) = " + SystemCalls.getUsedMemoryBytes());
+		System.out.println("Memory usage (ratio) = " + SystemCalls.getUsedMemoryRatio());
 		System.out.println("ScoreCache size = " + scoreCache.values().size());
-		((CachingProverStateMachine) getStateMachine()).printMemoryUsage();
-		
+		((CachingProverStateMachine) getStateMachine()).report();
 		System.out.println("Time left = " + (timeout - System.currentTimeMillis()));
 		System.out.println("----");
 	}
@@ -112,9 +100,9 @@ public class HeuristicGamer extends StateMachineGamer {
 				bestMove = move;
 				bestMaxValue = maxValue;
 			}
-			if (timedOut(finishBy)) return bestMove;
+			if (SystemCalls.passedTime(finishBy)) return bestMove;
 		}
-		logUsage(bestMove, getRole(), timeout);
+		report(bestMove, getRole(), timeout);
 		
 		return bestMove;
 	}
@@ -123,13 +111,13 @@ public class HeuristicGamer extends StateMachineGamer {
 	 * 
 	 */
 	public int getStateValue(MachineState state, long finishBy, int alpha, int beta, int depth) {
-		if (timedOut(finishBy)) return -1;
+		if (SystemCalls.passedTime(finishBy)) return -1;
 		
 		try {
 			StateMachine theMachine = getStateMachine();
 			if (theMachine.isTerminal(state)) {
 				
-				if (moreThanPercentMemoryAvailable(memoryThreshold)) {
+				if (SystemCalls.isMemoryAvailable()) {
 					scoreCache.put(state, theMachine.getGoal(state, getRole()));
 				}
 				return theMachine.getGoal(state, getRole());
@@ -141,9 +129,9 @@ public class HeuristicGamer extends StateMachineGamer {
 			int minScore = Integer.MAX_VALUE;
 			int maxScore = Integer.MIN_VALUE;
 			for (int i = 0; i < moves.size(); i++) {
-				if (timedOut(finishBy)) return -1;
+				if (SystemCalls.passedTime(finishBy)) return -1;
 				MachineState next = theMachine.getNextState(state, moves.get(i));
-				if (timedOut(finishBy)) return -1;
+				if (SystemCalls.passedTime(finishBy)) return -1;
 				// Get cached score if possible
 				Integer cachedScore = scoreCache.get(next);
 				if (cachedScore != null) {
@@ -164,7 +152,7 @@ public class HeuristicGamer extends StateMachineGamer {
 					}
 					
 					if (!usedHeuristic) {
-						if (moreThanPercentMemoryAvailable(memoryThreshold)) {
+						if (SystemCalls.isMemoryAvailable()) {
 							scoreCache.put(state, score);
 						}
 					}
@@ -201,7 +189,7 @@ public class HeuristicGamer extends StateMachineGamer {
 	}
 	
 	public boolean useHeuristic(long finishBy, int depth) {
-		return (System.currentTimeMillis() > (finishBy - timeThreshold)) || (depth > depthThreshold);
+		return (SystemCalls.passedTime(finishBy - timeThreshold)) || (depth > depthThreshold);
 	}
 	
 	public int getHeuristic(int numMoves, boolean myTurn, MachineState state, long timeLimit) {
@@ -215,17 +203,17 @@ public class HeuristicGamer extends StateMachineGamer {
 	public int getHeuristicForState(MachineState state, long finishBy) {
 		StateMachine theMachine = getStateMachine();
 		try {
-			if (timedOut(finishBy)) return -1;
+			if (SystemCalls.passedTime(finishBy)) return -1;
 			List<Move> myMoves = theMachine.getLegalMoves(state, getRole());
 			int numMoves = myMoves.size();
 			if (maxMobilityObserved < numMoves) maxMobilityObserved = numMoves;
-			if (timedOut(finishBy)) return -1;
+			if (SystemCalls.passedTime(finishBy)) return -1;
 			
 			boolean myTurn = true;
 			if (numMoves == 1) {
 				int totalOpponentMoves = 0;
 				for (Role role : theMachine.getRoles()) {
-					if (timedOut(finishBy)) return -1;
+					if (SystemCalls.passedTime(finishBy)) return -1;
 					int opponentMoves = theMachine.getLegalMoves(state, role).size();
 					if (opponentMoves > 1) {
 						myTurn = false;
@@ -235,7 +223,7 @@ public class HeuristicGamer extends StateMachineGamer {
 				if (myTurn == true) return (int)(100.0 / numPlayers); // everyone has only one move.
 				else numMoves = totalOpponentMoves;
 			}
-			if (timedOut(finishBy)) return -1;
+			if (SystemCalls.passedTime(finishBy)) return -1;
 			return getHeuristic(numMoves, myTurn, state, Math.min(System.currentTimeMillis() + 50, finishBy));
 			
 		} catch (MoveDefinitionException e) {
