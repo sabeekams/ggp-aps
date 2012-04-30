@@ -11,26 +11,36 @@ import util.statemachine.MachineState;
 import util.statemachine.Move;
 import util.statemachine.Role;
 
-// TODO: add garbage collection
+import java.lang.Runtime;
 
 public class CachingProverStateMachine extends ProverStateMachine
 {
-	private static final int maxCacheSize = 100000;
+	private static final double memoryThreshold = 0.4;
 	// The List key must be a tuple of MachineState, Role
 	private HashMap<List<Object>, List<Move>> movesCache;
 	// The List key must be a tuple of MachineState, List<Move>
 	private HashMap<List<Object>, MachineState> nextStatesCache;
-	// Secondary caches to switch to when the primary ones get too big
+	// Cache terminal states as true and non-terminal states as false;	
+	private HashMap<MachineState, Boolean> terminalStatesCache;
+	//Secondary caches to switch to when the primary ones get too big
 	private HashMap<List<Object>, List<Move>> secondMovesCache;
 	private HashMap<List<Object>, MachineState> secondNextStatesCache;
+	private HashMap<MachineState, Boolean> secondTerminalStatesCache;
 
-	
+	public boolean moreThanPercentMemoryAvailable(double threshold) {
+		double totalMemory = (double)Runtime.getRuntime().totalMemory();
+		double freeMemory = (double)Runtime.getRuntime().freeMemory();
+		
+		return (freeMemory / totalMemory) > threshold;
+	}
 	
 	public CachingProverStateMachine() {
 		movesCache = new HashMap<List<Object>, List<Move>>();
-		nextStatesCache = new HashMap<List<Object>, MachineState>();
 		secondMovesCache = new HashMap<List<Object>, List<Move>>();
+		nextStatesCache = new HashMap<List<Object>, MachineState>();
 		secondNextStatesCache = new HashMap<List<Object>, MachineState>();
+		terminalStatesCache = new HashMap<MachineState, Boolean>();
+		secondTerminalStatesCache = new HashMap<MachineState, Boolean>();
 	}
 	
 	@Override
@@ -42,7 +52,8 @@ public class CachingProverStateMachine extends ProverStateMachine
 		List<Move> moves  = movesCache.get(key);
 		if (moves == null) {
 			moves = super.getLegalMoves(state, role);
-			movesCache.put(key, moves);
+			if (moreThanPercentMemoryAvailable(memoryThreshold))
+				movesCache.put(key, moves);
 		} else {
 			secondMovesCache.put(key, moves);
 		}
@@ -58,28 +69,44 @@ public class CachingProverStateMachine extends ProverStateMachine
 		MachineState nextState  = nextStatesCache.get(key);
 		if (nextState == null) {
 			nextState = super.getNextState(state, moves);
-			nextStatesCache.put(key, nextState);
+			if (moreThanPercentMemoryAvailable(memoryThreshold))
+				nextStatesCache.put(key, nextState);
 		} else {
 			secondNextStatesCache.put(key, nextState);
 		}
 		return nextState;
-	}	
+	}
+	
+	@Override
+	public boolean isTerminal(MachineState state)
+	{
+		Boolean cachedBool = terminalStatesCache.get(state);
+		if (cachedBool == null) {
+			cachedBool = new Boolean(super.isTerminal(state));
+			if (moreThanPercentMemoryAvailable(memoryThreshold))
+				terminalStatesCache.put(state, cachedBool);
+		} else {
+			secondTerminalStatesCache.put(state, cachedBool);
+		}
+		return cachedBool.booleanValue();
+	}
+	
+	
+	public void printMemoryUsage(){
+		System.out.println("Next State Cache Size = " + nextStatesCache.size());
+		System.out.println("Terminal State Cache Size = " + terminalStatesCache.size());
+		System.out.println("Moves Cache Size = " + movesCache.size());
+	}
 
 	@Override
 	public void doPerMoveWork() {
-		System.out.println("***");
-		System.out.println(movesCache.size());
-		System.out.println(secondMovesCache.size());
-		System.out.println(nextStatesCache.size());
-		System.out.println(secondNextStatesCache.size());
-		System.out.println("***");
-		if (movesCache.size() > maxCacheSize) {
+		if (!moreThanPercentMemoryAvailable(memoryThreshold)) {
 			movesCache = secondMovesCache;
 			secondMovesCache = new HashMap<List<Object>, List<Move>>();
-		}
-		if (nextStatesCache.size() > maxCacheSize) {
 			nextStatesCache = secondNextStatesCache;
 			secondNextStatesCache = new HashMap<List<Object>, MachineState>();
+			terminalStatesCache = secondTerminalStatesCache;
+			secondTerminalStatesCache = new HashMap<MachineState, Boolean>();
 		}
 		super.doPerMoveWork();
 	}

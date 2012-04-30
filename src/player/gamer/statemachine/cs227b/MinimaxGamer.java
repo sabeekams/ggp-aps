@@ -10,10 +10,9 @@ import util.statemachine.StateMachine;
 import util.statemachine.exceptions.GoalDefinitionException;
 import util.statemachine.exceptions.MoveDefinitionException;
 import util.statemachine.exceptions.TransitionDefinitionException;
-//import util.statemachine.implementation.prover.ProverStateMachine;
 
 public class MinimaxGamer extends StateMachineGamer {
-
+	protected static final int timeoutThreshold = 2000;
 	private HashMap<MachineState, Integer> scoreCache;
 	
 	public MinimaxGamer() {
@@ -30,7 +29,7 @@ public class MinimaxGamer extends StateMachineGamer {
 	public void stateMachineMetaGame(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
 			GoalDefinitionException {
-		long finishBy = timeout - 1000;
+		long finishBy = timeout - timeoutThreshold;
 		// Search the graph
 		scoreCache = new HashMap<MachineState, Integer>();
 		getStateValue(getCurrentState(), finishBy);
@@ -40,10 +39,11 @@ public class MinimaxGamer extends StateMachineGamer {
 	public Move stateMachineSelectMove(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
 			GoalDefinitionException {		
-		long finishBy = timeout - 1000;
+		long finishBy = timeout - timeoutThreshold;
 		
 		StateMachine theMachine = getStateMachine();
 		List<Move> myMoves = theMachine.getLegalMoves(getCurrentState(), getRole());
+
 		Move bestMove = myMoves.get(0);
 		List<Move> jointMoves = theMachine.getLegalJointMoves(getCurrentState(), getRole(), bestMove).get(0);
 		int bestMaxValue = getStateValue(theMachine.getNextState(getCurrentState(), jointMoves), finishBy);
@@ -103,11 +103,11 @@ public class MinimaxGamer extends StateMachineGamer {
 					return cachedScore.intValue();
 				} else {
 					int score = getStateValue(next, finishBy);
-					scoreCache.put(state, score);
 					// If error or out of time, exit early
 					if (score == -1) {
 						return -1;
 					}
+					scoreCache.put(state, score);
 					if (score < minScore) minScore = score;
 					if (score > maxScore) maxScore = score;
 				}
