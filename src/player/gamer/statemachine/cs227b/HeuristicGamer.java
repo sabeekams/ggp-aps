@@ -16,7 +16,7 @@ public class HeuristicGamer extends StateMachineGamer {
 	protected HashMap<MachineState, Integer> scoreCache;
 	protected int maxMobilityObserved;
 	protected int numPlayers;
-	protected static final int depthThreshold = 10;
+	protected static final int depthThreshold = 100;
 	protected static final int timeThreshold = 4000;
 	protected static final double focusHeuristicFactor = 5.0;
 	protected static final double mobilityHeuristicFactor = 12.0;

@@ -56,7 +56,6 @@ public class MinimaxGamer extends StateMachineGamer {
 				bestMaxValue = maxValue;
 			}
 		}
-		System.out.println("ScoreCache size" + scoreCache.values().size());
 		return bestMove;
 	}
 
@@ -81,6 +80,9 @@ public class MinimaxGamer extends StateMachineGamer {
 	
 	public int getStateValue(MachineState state, long finishBy) {
 		if (timedOut(finishBy)) return -1;
+		Integer cachedScore = scoreCache.get(state);
+		if (cachedScore != null)
+			return cachedScore;
 		
 		try {
 			StateMachine theMachine = getStateMachine();
@@ -97,25 +99,20 @@ public class MinimaxGamer extends StateMachineGamer {
 			for (int i = 0; i < moves.size(); i++) {
 				if (timedOut(finishBy)) return -1;
 				MachineState next = theMachine.getNextState(state, moves.get(i));
-				// Get cached score if possible
-				Integer cachedScore = scoreCache.get(next);
-				if (cachedScore != null) {
-					return cachedScore.intValue();
-				} else {
-					int score = getStateValue(next, finishBy);
-					// If error or out of time, exit early
-					if (score == -1) {
-						return -1;
-					}
-					scoreCache.put(state, score);
-					if (score < minScore) minScore = score;
-					if (score > maxScore) maxScore = score;
+				int score = getStateValue(next, finishBy);
+				// If error or out of time, exit early
+				if (score == -1) {
+					return -1;
 				}
+				if (score < minScore) minScore = score;
+				if (score > maxScore) maxScore = score;
 			}
 			// If this is our move or an opponent's
 			if (myMoves.size() == 1) {
+				scoreCache.put(state, minScore);
 				return minScore;
 			} else {
+				scoreCache.put(state, maxScore);
 				return maxScore;
 			}
 

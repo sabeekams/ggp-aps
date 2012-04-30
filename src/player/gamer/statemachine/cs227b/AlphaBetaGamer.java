@@ -54,12 +54,20 @@ public class AlphaBetaGamer extends MinimaxGamer {
 			}
 			if (timedOut(finishBy)) return bestMove;
 		}
-		System.out.println("ScoreCache size = " + scoreCache.values().size());
 		return bestMove;
+	}
+	
+	public void dumpScoreCache() {
+		for (MachineState s: scoreCache.keySet()) {
+			System.out.println(s.toString() + ": " + scoreCache.get(s));
+		}
 	}
 	
 	public int getStateValue(MachineState state, long finishBy, int alpha, int beta) {
 		if (timedOut(finishBy)) return -1;
+		Integer cachedScore = scoreCache.get(state);
+		if (cachedScore != null)
+			return cachedScore;
 		
 		try {
 			StateMachine theMachine = getStateMachine();
@@ -76,39 +84,35 @@ public class AlphaBetaGamer extends MinimaxGamer {
 				if (timedOut(finishBy)) return -1;
 				MachineState next = theMachine.getNextState(state, moves.get(i));
 				// Get cached score if possible
-				Integer cachedScore = scoreCache.get(next);
-				if (cachedScore != null) {
-					return cachedScore.intValue();
-				} else {
-					int score = getStateValue(next, finishBy, alpha, beta);
-					// If error or out of time, exit early
-					if (score == -1) {
-						return -1;
-					}
-					scoreCache.put(state, score);
-					if (score < minScore) minScore = score;
-					if (score > maxScore) maxScore = score;
-					if (myMoves.size() == 1) {
-						if (maxScore > alpha) {
-							alpha = maxScore;
-							if (alpha >= beta) {
-								return alpha;
-							}
+				int score = getStateValue(next, finishBy, alpha, beta);
+				// If error or out of time, exit early
+				if (score == -1) {
+					return -1;
+				}
+				if (score < minScore) minScore = score;
+				if (score > maxScore) maxScore = score;
+				if (myMoves.size() > 1) {
+					if (maxScore > alpha) {
+						alpha = maxScore;
+						if (alpha >= beta) {
+							return alpha;
 						}
-					} else {
-						if (maxScore < beta) {
-							beta = maxScore;
-							if (beta <= alpha) {
-								return beta;
-							}
+					}
+				} else {
+					if (maxScore < beta) {
+						beta = maxScore;
+						if (beta <= alpha) {
+							return beta;
 						}
 					}
 				}
 			}
 			// If this is our move or an opponent's
 			if (myMoves.size() == 1) {
+				scoreCache.put(state, minScore);
 				return minScore;
 			} else {
+				scoreCache.put(state, maxScore);
 				return maxScore;
 			}
 
