@@ -14,23 +14,16 @@ import util.statemachine.Role;
 public class CachingProverStateMachine extends ProverStateMachine
 {
 	// The List key must be a tuple of MachineState, Role
-	private HashMap<List<Object>, List<Move>> movesCache;
+	private StateMachineCache<List<Object>, List<Move>> movesCache;
 	// The List key must be a tuple of MachineState, List<Move>
-	private HashMap<List<Object>, MachineState> nextStatesCache;
+	private StateMachineCache<List<Object>, MachineState> nextStatesCache;
 	// Cache terminal states as true and non-terminal states as false;	
-	private HashMap<MachineState, Boolean> terminalStatesCache;
-	// Secondary caches to switch to when the primary ones get too big
-	private HashMap<List<Object>, List<Move>> secondMovesCache;
-	private HashMap<List<Object>, MachineState> secondNextStatesCache;
-	private HashMap<MachineState, Boolean> secondTerminalStatesCache;
+	private StateMachineCache<MachineState, Boolean> terminalStatesCache;
 
 	public CachingProverStateMachine() {
-		movesCache = new HashMap<List<Object>, List<Move>>();
-		secondMovesCache = new HashMap<List<Object>, List<Move>>();
-		nextStatesCache = new HashMap<List<Object>, MachineState>();
-		secondNextStatesCache = new HashMap<List<Object>, MachineState>();
-		terminalStatesCache = new HashMap<MachineState, Boolean>();
-		secondTerminalStatesCache = new HashMap<MachineState, Boolean>();
+		movesCache = new StateMachineCache<List<Object>, List<Move>>();
+		nextStatesCache = new StateMachineCache<List<Object>, MachineState>();
+		terminalStatesCache = new StateMachineCache<MachineState, Boolean>();
 	}
 	
 	@Override
@@ -39,13 +32,10 @@ public class CachingProverStateMachine extends ProverStateMachine
 		ArrayList<Object> key = new ArrayList<Object>();
 		key.add(state); key.add(role);
 		
-		List<Move> moves  = movesCache.get(key);
+		List<Move> moves  = movesCache.retrieve(key);
 		if (moves == null) {
 			moves = super.getLegalMoves(state, role);
-			if (SystemCalls.isMemoryAvailable())
-				movesCache.put(key, moves);
-		} else {
-			secondMovesCache.put(key, moves);
+			movesCache.cache(key, moves);
 		}
 		return moves;
 	}
@@ -56,13 +46,10 @@ public class CachingProverStateMachine extends ProverStateMachine
 		ArrayList<Object> key = new ArrayList<Object>();
 		key.add(state); key.add(moves);
 		
-		MachineState nextState  = nextStatesCache.get(key);
+		MachineState nextState  = nextStatesCache.retrieve(key);
 		if (nextState == null) {
 			nextState = super.getNextState(state, moves);
-			if (SystemCalls.isMemoryAvailable())
-				nextStatesCache.put(key, nextState);
-		} else {
-			secondNextStatesCache.put(key, nextState);
+			nextStatesCache.cache(key, nextState);
 		}
 		return nextState;
 	}
@@ -70,32 +57,30 @@ public class CachingProverStateMachine extends ProverStateMachine
 	@Override
 	public boolean isTerminal(MachineState state)
 	{
-		Boolean cachedBool = terminalStatesCache.get(state);
-		if (cachedBool == null) {
-			cachedBool = new Boolean(super.isTerminal(state));
-			if (SystemCalls.isMemoryAvailable())
-				terminalStatesCache.put(state, cachedBool);
-		} else {
-			secondTerminalStatesCache.put(state, cachedBool);
+		Boolean boolValue = terminalStatesCache.retrieve(state);
+		
+		if (boolValue == null) {
+			boolValue = super.isTerminal(state);
+			terminalStatesCache.cache(state, boolValue);
 		}
-		return cachedBool.booleanValue();
-
+		return boolValue;
 	}
 	
 	public void report(){
-		System.out.println("Next states cache size = " + nextStatesCache.size());
-		System.out.println("Terminal states cache size = " + terminalStatesCache.size());
-		System.out.println("Moves cache size = " + movesCache.size());
+		System.out.println("Next states cache:");
+		nextStatesCache.report();
+		System.out.println("Terminal states cache:");
+		terminalStatesCache.report();
+		System.out.println("Moves cache cache:");
+		movesCache.report();
+
 	}
 
 	public void SwapCachesIfNeeded() {
 		if (!SystemCalls.isMemoryAvailable()) {
-			movesCache = secondMovesCache;
-			secondMovesCache = new HashMap<List<Object>, List<Move>>();
-			nextStatesCache = secondNextStatesCache;
-			secondNextStatesCache = new HashMap<List<Object>, MachineState>();
-			terminalStatesCache = secondTerminalStatesCache;
-			secondTerminalStatesCache = new HashMap<MachineState, Boolean>();
+			movesCache.swapCaches();
+			nextStatesCache.swapCaches();
+			terminalStatesCache.swapCaches();
 		}
 	}
 	

@@ -12,7 +12,7 @@ import util.statemachine.exceptions.GoalDefinitionException;
 import util.statemachine.exceptions.MoveDefinitionException;
 import util.statemachine.exceptions.TransitionDefinitionException;
 
-public class HeuristicGamer extends StateMachineGamer {
+public class BackupHeuristicGamer extends StateMachineGamer {
 	protected HashMap<MachineState, Integer> scoreCache;
 	protected int maxMobilityObserved;
 	protected int numPlayers;
@@ -25,13 +25,13 @@ public class HeuristicGamer extends StateMachineGamer {
 	protected static final int alphaValue = 0;
 	
 	
-	public HeuristicGamer() {
+	public BackupHeuristicGamer() {
 		super();
 	}
 	
 	@Override
 	public String getName() {
-		return "HeuristicGamer";
+		return "BackupHeuristicGamer";
 	}
 	
 	public StateMachine getInitialStateMachine() {
@@ -137,8 +137,7 @@ public class HeuristicGamer extends StateMachineGamer {
 	
 				int score;
 				boolean usedHeuristic = false;
-				//if (useHeuristic(finishBy, depth)) {
-				if (false) {
+				if (useHeuristic(finishBy, depth)) {
 					score = getHeuristicForState(state, finishBy);
 					usedHeuristic = true;
 					//System.out.printf("heuristic score: %d\n", score);
