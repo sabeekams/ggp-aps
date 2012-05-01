@@ -21,6 +21,8 @@ public class HeuristicGamer extends StateMachineGamer {
 	protected static final double focusHeuristicFactor = 5.0;
 	protected static final double mobilityHeuristicFactor = 12.0;
 	protected static final int timeoutThreshold = 2000;
+	protected static final int betaValue = 100;
+	protected static final int alphaValue = 0;
 	
 	
 	public HeuristicGamer() {
@@ -55,16 +57,11 @@ public class HeuristicGamer extends StateMachineGamer {
 		maxMobilityObserved = 2;
 		numPlayers = getStateMachine().getRoles().size();
 		// Search the graph
-		getStateValue(getCurrentState(), finishBy, Integer.MIN_VALUE, Integer.MAX_VALUE, 1);
+		getStateValue(getCurrentState(), finishBy, alphaValue, betaValue, 1);
 	}
 	
 	
-	public boolean moreThanPercentMemoryAvailable(double threshold) {
-		double totalMemory = (double)Runtime.getRuntime().totalMemory();
-		double freeMemory = (double)Runtime.getRuntime().freeMemory();
-		
-		return (freeMemory / totalMemory) > threshold;
-	}
+
 	
 	/*Keeps track of memory and cache
 	 */
@@ -91,11 +88,11 @@ public class HeuristicGamer extends StateMachineGamer {
 		
 		Move bestMove = myMoves.get(0);
 		List<Move> jointMoves = theMachine.getLegalJointMoves(getCurrentState(), getRole(), bestMove).get(0);
-		int bestMaxValue = getStateValue(theMachine.getNextState(getCurrentState(), jointMoves), finishBy, Integer.MIN_VALUE, Integer.MAX_VALUE, 1);
+		int bestMaxValue = getStateValue(theMachine.getNextState(getCurrentState(), jointMoves), finishBy, alphaValue, betaValue, 1);
 		for (int i = 1; i < myMoves.size(); i++) {
 			Move move = myMoves.get(i);
 			jointMoves = theMachine.getLegalJointMoves(getCurrentState(), getRole(), move).get(0);
-			int maxValue = getStateValue(theMachine.getNextState(getCurrentState(), jointMoves), finishBy, Integer.MIN_VALUE, Integer.MAX_VALUE, 1);
+			int maxValue = getStateValue(theMachine.getNextState(getCurrentState(), jointMoves), finishBy, alphaValue, betaValue, 1);
 			if (maxValue > bestMaxValue) {
 				bestMove = move;
 				bestMaxValue = maxValue;
@@ -113,6 +110,11 @@ public class HeuristicGamer extends StateMachineGamer {
 	public int getStateValue(MachineState state, long finishBy, int alpha, int beta, int depth) {
 		if (SystemCalls.passedTime(finishBy)) return -1;
 		
+		Integer cachedScore = scoreCache.get(state);
+		if (cachedScore != null) {
+			return cachedScore.intValue();
+		}
+		
 		try {
 			StateMachine theMachine = getStateMachine();
 			if (theMachine.isTerminal(state)) {
@@ -129,57 +131,58 @@ public class HeuristicGamer extends StateMachineGamer {
 			int minScore = Integer.MAX_VALUE;
 			int maxScore = Integer.MIN_VALUE;
 			for (int i = 0; i < moves.size(); i++) {
-				if (SystemCalls.passedTime(finishBy)) return -1;
 				MachineState next = theMachine.getNextState(state, moves.get(i));
 				if (SystemCalls.passedTime(finishBy)) return -1;
 				// Get cached score if possible
-				Integer cachedScore = scoreCache.get(next);
-				if (cachedScore != null) {
-					return cachedScore.intValue();
+	
+				int score;
+				boolean usedHeuristic = false;
+				//if (useHeuristic(finishBy, depth)) {
+				if (false) {
+					score = getHeuristicForState(state, finishBy);
+					usedHeuristic = true;
+					//System.out.printf("heuristic score: %d\n", score);
 				} else {
-					int score;
-					boolean usedHeuristic = false;
-					if (useHeuristic(finishBy, depth)) {
-						score = getHeuristicForState(state, finishBy);
-						usedHeuristic = true;
-						//System.out.printf("heuristic score: %d\n", score);
-					} else {
-						score = getStateValue(next, finishBy, alpha, beta, depth+1);
-					}
-					// If error or out of time, exit early
-					if (score < 0) {
-						return -1;
-					}
-					
-					if (!usedHeuristic) {
-						if (SystemCalls.isMemoryAvailable()) {
-							scoreCache.put(state, score);
-						}
-					}
-					
-					if (score < minScore) minScore = score;
-					if (score > maxScore) maxScore = score;
-					if (myMoves.size() == 1) {
-						if (maxScore > alpha) {
-							alpha = maxScore;
-							if (alpha >= beta) {
-								return alpha;
-							}
-						}
-					} else {
-						if (maxScore < beta) {
-							beta = maxScore;
-							if (beta <= alpha) {
-								return beta;
-							}
-						}
+
+					score = getStateValue(next, finishBy, alpha, beta, depth+1);
+				}
+				// If error or out of time, exit early
+				if (score < 0) {
+					return -1;
+				}
+
+				if (!usedHeuristic) {
+					if (SystemCalls.isMemoryAvailable()) {
+						//scoreCache.put(state, score);
 					}
 				}
+
+				if (score < minScore) minScore = score;
+				if (score > maxScore) maxScore = score;
+				if (myMoves.size() > 1) {
+					if (maxScore > alpha) {
+						alpha = maxScore;
+						if (alpha >= beta) {
+							scoreCache.put(state, alpha);
+							return alpha;
+						}
+					}
+				} else {
+					if (minScore < beta) {
+						beta = minScore;
+						if (beta <= alpha) {
+							scoreCache.put(state, beta);
+							return beta;
+						}
+					}
+				}	
 			}
 			// If this is our move or an opponent's
 			if (myMoves.size() == 1) {
+				scoreCache.put(state, minScore);
 				return minScore;
 			} else {
+				scoreCache.put(state, maxScore);
 				return maxScore;
 			}
 

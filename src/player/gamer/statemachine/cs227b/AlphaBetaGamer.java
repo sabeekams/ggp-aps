@@ -35,7 +35,7 @@ public class AlphaBetaGamer extends MinimaxGamer {
 	@Override
 	public Move stateMachineSelectMove(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
-			GoalDefinitionException {		
+			GoalDefinitionException {	
 		long finishBy = timeout - 2000;
 		
 		StateMachine theMachine = getStateMachine();
@@ -54,6 +54,7 @@ public class AlphaBetaGamer extends MinimaxGamer {
 			}
 			if (timedOut(finishBy)) return bestMove;
 		}
+		System.out.println(SystemCalls.getFreeMemoryRatio());
 		return bestMove;
 	}
 	
@@ -95,13 +96,15 @@ public class AlphaBetaGamer extends MinimaxGamer {
 					if (maxScore > alpha) {
 						alpha = maxScore;
 						if (alpha >= beta) {
+							scoreCache.put(state, alpha);
 							return alpha;
 						}
 					}
 				} else {
-					if (maxScore < beta) {
-						beta = maxScore;
+					if (minScore < beta) {
+						beta = minScore;
 						if (beta <= alpha) {
+							scoreCache.put(state, beta);
 							return beta;
 						}
 					}

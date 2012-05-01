@@ -8,8 +8,7 @@ public class SystemCalls {
 	}
 	
 	public static double getFreeMemoryRatio() {
-		double totalMemory = Runtime.getRuntime().totalMemory();
-		return (totalMemory - Runtime.getRuntime().freeMemory()) / totalMemory;
+		return Runtime.getRuntime().freeMemory() / (double)Runtime.getRuntime().totalMemory();
 	}
 	
 	public static boolean isMemoryAvailable() {
@@ -21,7 +20,8 @@ public class SystemCalls {
 	}
 	
 	public static double getUsedMemoryRatio() {
-		return ((double)Runtime.getRuntime().totalMemory() / Runtime.getRuntime().freeMemory());
+		double totalMemory = Runtime.getRuntime().totalMemory();
+		return (totalMemory - Runtime.getRuntime().freeMemory()) / totalMemory;
 	}
 	
 	public static boolean passedTime(long finishBy) {
