@@ -36,6 +36,7 @@ public class CachingProverStateMachine extends ProverStateMachine
 	@Override
 	public List<Move> getLegalMoves(MachineState state, Role role) throws MoveDefinitionException
 	{
+		Timer t = new Timer();
 		ArrayList<Object> key = new ArrayList<Object>();
 		key.add(state); key.add(role);
 		
@@ -79,6 +80,7 @@ public class CachingProverStateMachine extends ProverStateMachine
 			secondTerminalStatesCache.put(state, cachedBool);
 		}
 		return cachedBool.booleanValue();
+
 	}
 	
 	public void report(){
