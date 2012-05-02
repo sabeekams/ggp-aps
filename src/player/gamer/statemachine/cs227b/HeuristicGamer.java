@@ -59,16 +59,21 @@ public class HeuristicGamer extends StateMachineGamer {
 			terminalScoreCache.swapCaches();
 		}
 		
+		boolean bailout = false;
 		while (someNonTerminalScores) {
 			someNonTerminalScores = false;
 			for (Move move: myMoves) {
 				jointMoves = theMachine.getLegalJointMoves(currentState, getRole(), move).get(0);
 				MachineState next = theMachine.getNextState(currentState, jointMoves);
 				int score = getStateValue(next, finishBy, alphaValue, betaValue, 1, iterDepth);
-				if (score < 0) break;
+				if (score < 0) {
+					bailout = true;
+					break;
+				}
 				if (terminalScoreCache.retrieve(next) == null) someNonTerminalScores = true;
 				movesToScore.put(move, score);
 			}
+			if (bailout) break;
 			iterDepth++;
 		}
 				
@@ -114,13 +119,13 @@ public class HeuristicGamer extends StateMachineGamer {
 			} else if (depth == maxDepth) {
 				isTerminalScore = false;
 				// TODO: Uncomment this block and delete the "result = 1" to restore heuristics
-				/*Integer heuristicScore = heuristicScoreCache.retrieve(state);
+				Integer heuristicScore = heuristicScoreCache.retrieve(state);
 				if (heuristicScore == null) {
 					heuristicScoreCache.cache(state, heuristicScore);
-					heuristicScore = getHeuristicScore(state);
+					heuristicScore = getHeuristicScore(state, finishBy);
 				} 
-				result = heuristicScore;*/
-				result = 1;
+				result = heuristicScore;
+				//result = 1;
 			} else {
 				List<List<Move>> allMoves = theMachine.getLegalJointMoves(state);
 				// Detect if it's our turn or opponent's
@@ -180,8 +185,8 @@ public class HeuristicGamer extends StateMachineGamer {
 	private double opponentOneStepMobilityHeuristicWeight = 0.0;
 	private double opponentOneStepFocusHeuristicWeight = 0.0;
 	
-	private double monteCarloHeuristicWeight = 0.0;
-	public int getHeuristicScore(MachineState state) throws MoveDefinitionException {
+	private double monteCarloHeuristicWeight = 1.0;
+	public int getHeuristicScore(MachineState state, long finishBy) throws MoveDefinitionException {
 		StateMachine theMachine = getStateMachine();
 		List<List<Move>> allMoves = theMachine.getLegalJointMoves(state);
 		List<Move> myMoves = theMachine.getLegalMoves(state, getRole());
@@ -195,7 +200,7 @@ public class HeuristicGamer extends StateMachineGamer {
 			score = score + opponentOneStepMobilityHeuristicWeight * getOpponentOneStepMobilityHeuristic(allMoves.size());
 			score = score + opponentOneStepFocusHeuristicWeight * getOpponentOneStepFocusHeuristic(allMoves.size());
 		}
-		score = score + monteCarloHeuristicWeight * getMonteCarloHeuristic(state);
+		score = score + monteCarloHeuristicWeight * getMonteCarloHeuristic(state, finishBy);
 		return (int)(score * 100);
 	}
 	
@@ -219,7 +224,28 @@ public class HeuristicGamer extends StateMachineGamer {
 		return numMoves / (numMoves + opponentOneStepFocusHeuristicFactor);
 	}
 	
-	private double getMonteCarloHeuristic(MachineState state) {
+	private long maxMonteCarloRuntime = 100;
+	private double getMonteCarloHeuristic(MachineState state, long finishBy) {
+		int totalScore = 0;
+		int runs = 0;
+		long start = System.currentTimeMillis();
+		StateMachine theMachine = getStateMachine();
+		int[] dummyDepth = new int[1];
+		try {
+		while (!SystemCalls.passedTime(finishBy) && !SystemCalls.passedTime(start + maxMonteCarloRuntime)) {
+			MachineState terminalState = theMachine.performDepthCharge(state, dummyDepth);
+			totalScore += theMachine.getGoal(terminalState, getRole());
+			runs += 1;
+		}
+		} catch (Exception e) {
+			// TODO: What to actually return?
+			return 0.0;
+		}
+		return (double)totalScore / runs / 100;
+	}
+	
+	/*
+	private double getMonteCarloHeuristic(MachineState state, long finishBy) {
 		HashMap<MachineState, Integer[]> result = runMonteCarloSimulations(state);
 		int totalScore = 0;
 		int frequency = 0;
@@ -254,7 +280,7 @@ public class HeuristicGamer extends StateMachineGamer {
 			return result;
 		}
 		return result;
-	}
+	}*/
 	
 	//private double 
 		
