@@ -2,25 +2,16 @@ package player.gamer.statemachine.cs227b;
 
 public class AdvancedGamer extends HeuristicGamer {
 	
-
 	@Override
 	public String getName() {
 		return "AdvancedGamer";
 	}
 	
-	
-	
-
-	/*public int getHeuristic(int numMoves, boolean myTurn, MachineState state, long timeLimit) {
-		if(myTurn) {
-			
-			return (int)(getMobilityHeuristicScore(numMoves) * 10.0 + getMonteCarloHeuristicScore(state, timeLimit - 50)* 90);
-			
-		} else {
-			
-			return (int)(getFocusHeuristicScore(numMoves) * 10.0 + getMonteCarloHeuristicScore(state,timeLimit - 50)* 90);
-		}
-		
-	}*/
+	protected double oneStepMobilityHeuristicWeight = 0.0;
+	protected double oneStepFocusHeuristicWeight = 0.5;
+	protected double opponentOneStepMobilityHeuristicWeight = 0.0;
+	protected double opponentOneStepFocusHeuristicWeight = 0.5;
+	protected double monteCarloHeuristicWeight = 0.0;
+	protected double medianMinhashMonteCarloHeuristicWeight = 0.5;
 
 }
