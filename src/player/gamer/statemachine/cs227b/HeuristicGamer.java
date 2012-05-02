@@ -1,7 +1,6 @@
 package player.gamer.statemachine.cs227b;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 
 import player.gamer.statemachine.StateMachineGamer;
@@ -15,13 +14,14 @@ import util.statemachine.exceptions.TransitionDefinitionException;
 
 public class HeuristicGamer extends StateMachineGamer {
 	private StateMachineCache<MachineState, Integer> terminalScoreCache;
+	private StateMachineCache<MachineState, Integer> heuristicScoreCache;
 	private static final int betaValue = 100;
 	private static final int alphaValue = 0;
 	private static final int initialIterDepth = 2;
+	private static long useHeuristicTimeThreshold = 5000;
 	
 	public HeuristicGamer() {
 		super();
-		terminalScoreCache = new StateMachineCache<MachineState, Integer>();
 	}
 	
 	@Override
@@ -33,7 +33,8 @@ public class HeuristicGamer extends StateMachineGamer {
 	public void stateMachineMetaGame(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
 			GoalDefinitionException {
-		terminalScoreCache = new StateMachineCache<MachineState, Integer>();		
+		terminalScoreCache = new StateMachineCache<MachineState, Integer>();
+		heuristicScoreCache = new StateMachineCache<MachineState, Integer>();
 		// Search the graph
 		stateMachineSelectMove(timeout);
 	}
@@ -112,8 +113,14 @@ public class HeuristicGamer extends StateMachineGamer {
 				result = theMachine.getGoal(state, getRole());
 			} else if (depth == maxDepth) {
 				isTerminalScore = false;
-				// TODO: heuristics stuff
-				result = getHeuristicScore(state);
+				// TODO: Uncomment this block and delete the "result = 1" to restore heuristics
+				/*Integer heuristicScore = heuristicScoreCache.retrieve(state);
+				if (heuristicScore == null) {
+					heuristicScoreCache.cache(state, heuristicScore);
+					heuristicScore = getHeuristicScore(state);
+				} 
+				result = heuristicScore;*/
+				result = 1;
 			} else {
 				List<List<Move>> allMoves = theMachine.getLegalJointMoves(state);
 				// Detect if it's our turn or opponent's
@@ -129,7 +136,7 @@ public class HeuristicGamer extends StateMachineGamer {
 					// The non-terminal score property bubbles up to parents.
 					if (terminalScoreCache.retrieveNoCache(next) == null) isTerminalScore = false;
 					// If error or out of time, exit early
-					if (score == -1) return -1;
+					if (score == -1	) return -1;
 					if (score < minScore) minScore = score;
 					if (score > maxScore) maxScore = score;
 					// Alpha beta pruning
@@ -165,11 +172,15 @@ public class HeuristicGamer extends StateMachineGamer {
 		}
 	}
 
-	
-	private double oneStepMobilityHeuristicWeight = 1.0;
+	// Caveat: Total weights for one thread of execution must equal 1.0, e.g.
+	// total weights on heuristics for opponent's turn = 0.8, Monte Carlo heuristic weight 0.2
+	private double oneStepMobilityHeuristicWeight = 0.0;
 	private double oneStepFocusHeuristicWeight = 0.0;
-	private double opponentOneStepMobilityHeuristicWeight = 1.0;
+	
+	private double opponentOneStepMobilityHeuristicWeight = 0.0;
 	private double opponentOneStepFocusHeuristicWeight = 0.0;
+	
+	private double monteCarloHeuristicWeight = 0.0;
 	public int getHeuristicScore(MachineState state) throws MoveDefinitionException {
 		StateMachine theMachine = getStateMachine();
 		List<List<Move>> allMoves = theMachine.getLegalJointMoves(state);
@@ -184,7 +195,7 @@ public class HeuristicGamer extends StateMachineGamer {
 			score = score + opponentOneStepMobilityHeuristicWeight * getOpponentOneStepMobilityHeuristic(allMoves.size());
 			score = score + opponentOneStepFocusHeuristicWeight * getOpponentOneStepFocusHeuristic(allMoves.size());
 		}
-		
+		score = score + monteCarloHeuristicWeight * getMonteCarloHeuristic(state);
 		return (int)(score * 100);
 	}
 	
@@ -207,6 +218,45 @@ public class HeuristicGamer extends StateMachineGamer {
 	private double getOpponentOneStepFocusHeuristic(int numMoves) {
 		return numMoves / (numMoves + opponentOneStepFocusHeuristicFactor);
 	}
+	
+	private double getMonteCarloHeuristic(MachineState state) {
+		HashMap<MachineState, Integer[]> result = runMonteCarloSimulations(state);
+		int totalScore = 0;
+		int frequency = 0;
+		for (Integer[] stateInfo: result.values()) {
+			totalScore = totalScore + stateInfo[0] * stateInfo[2];
+			frequency = frequency + stateInfo[2];
+		}
+		return (double)totalScore / frequency / 100;
+	}
+	
+	private HashMap<MachineState, Integer[]> runMonteCarloSimulations(MachineState state) {
+		// Integer array consists of: { score, depth, frequency }
+		HashMap<MachineState, Integer[]> result = new HashMap<MachineState, Integer[]>();
+		long start = System.currentTimeMillis();
+		int[] depth = new int[1];
+		StateMachine theMachine = getStateMachine();
+		try {
+			while (System.currentTimeMillis() < start + 200) {
+				MachineState terminalState = theMachine.performDepthCharge(state, depth);
+				Integer[] stateInfo = result.get(terminalState);
+				if (stateInfo == null) {
+					stateInfo = new Integer[3];
+					stateInfo[0] = theMachine.getGoal(terminalState, getRole());
+					stateInfo[1] = depth[0];
+					stateInfo[2] = 1;
+					result.put(terminalState, stateInfo);
+				} else {
+					stateInfo[2] = stateInfo[2] + 1;
+				}
+			}
+		} catch (Exception e) {
+			return result;
+		}
+		return result;
+	}
+	
+	//private double 
 		
 	public void stateMachineStop() {
 	}
