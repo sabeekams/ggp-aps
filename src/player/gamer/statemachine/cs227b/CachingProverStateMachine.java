@@ -1,7 +1,6 @@
 package player.gamer.statemachine.cs227b;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import util.statemachine.exceptions.MoveDefinitionException;
