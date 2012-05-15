@@ -17,12 +17,12 @@ public class CachingProverStateMachine extends ProverStateMachine
 	// The List key must be a tuple of MachineState, List<Move>
 	private StateMachineCache<List<Object>, MachineState> nextStatesCache;
 	// Cache terminal states as true and non-terminal states as false;	
-	private StateMachineCache<MachineState, Boolean> terminalStatesCache;
+	//private StateMachineCache<MachineState, Boolean> terminalStatesCache;
 
 	public CachingProverStateMachine() {
 		movesCache = new StateMachineCache<List<Object>, List<Move>>();
 		nextStatesCache = new StateMachineCache<List<Object>, MachineState>();
-		terminalStatesCache = new StateMachineCache<MachineState, Boolean>();
+		//terminalStatesCache = new StateMachineCache<MachineState, Boolean>();
 	}
 	
 	@Override
@@ -53,8 +53,8 @@ public class CachingProverStateMachine extends ProverStateMachine
 		return nextState;
 	}
 	
-	@Override
-	public boolean isTerminal(MachineState state)
+	//@Override
+	/*public boolean isTerminal(MachineState state)
 	{
 		Boolean boolValue = terminalStatesCache.retrieve(state);
 		
@@ -63,13 +63,13 @@ public class CachingProverStateMachine extends ProverStateMachine
 			terminalStatesCache.cache(state, boolValue);
 		}
 		return boolValue;
-	}
+	}*/
 	
-	public void report(){
+	public void report() {
 		System.out.println("Next states cache:");
 		nextStatesCache.report();
 		System.out.println("Terminal states cache:");
-		terminalStatesCache.report();
+		//terminalStatesCache.report();
 		System.out.println("Moves cache cache:");
 		movesCache.report();
 
@@ -79,7 +79,7 @@ public class CachingProverStateMachine extends ProverStateMachine
 		if (!SystemCalls.isMemoryAvailable()) {
 			movesCache.swapCaches();
 			nextStatesCache.swapCaches();
-			terminalStatesCache.swapCaches();
+			//terminalStatesCache.swapCaches();
 		}
 	}
 	

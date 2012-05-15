@@ -118,4 +118,10 @@ public final class MyRandomGamer extends Gamer
 		return "My Random Gamer";
 	}
 
+	@Override
+	public void abortAll() {
+		// TODO Auto-generated method stub
+		
+	}
+
 }
