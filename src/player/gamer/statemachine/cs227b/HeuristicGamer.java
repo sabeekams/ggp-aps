@@ -323,7 +323,9 @@ public class HeuristicGamer extends StateMachineGamer {
 
 	@Override
 	public StateMachine getInitialStateMachine() {
-		return new CachingProverStateMachine();
+		//return new CachingProverStateMachine();
+		return new PropNetStateMachine();
+
 	}
 
 }
